@@ -35,7 +35,7 @@ public class ColorFilter implements ImageProcessor {
 
     for (int x = 0; x < width; ++ x) {
       for (int y = 0; y < height; ++ y) {
-        int rgb = image.getRGB(x, y);;
+        int rgb = image.getRGB(x, y);
 
         HSV hsv = ColorUtils.rgb2hsv(rgb);
 
