@@ -9,6 +9,7 @@ public class DisjointSet {
   private int right;
   private int top;
   private int bottom;
+  private int size;
 
   public Point center() {
     DisjointSet v = find();
@@ -38,6 +39,7 @@ public class DisjointSet {
     p.right = Math.max(a.right, b.right);
     p.bottom = Math.max(a.bottom, b.bottom);
     p.top = Math.min(a.top, b.top);
+    p.size = a.size + b.size;
   }
 
   public DisjointSet find() {
@@ -54,6 +56,7 @@ public class DisjointSet {
     height = 0;
     left = right = x;
     top = bottom = y;
+    size = 1;
   }
 
   public boolean hasOverlap(DisjointSet x) {
@@ -64,5 +67,9 @@ public class DisjointSet {
       return true;
     }
     return false;
+  }
+
+  public int getSize() {
+    return size;
   }
 }

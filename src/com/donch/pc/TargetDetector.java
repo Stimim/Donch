@@ -9,7 +9,7 @@ public class TargetDetector {
   private final ArrayList<DisjointSet> pool = new ArrayList<DisjointSet>();
   private int lastUsable;
 
-  public ArrayList<Point> find(BufferedImage image) {
+  public ArrayList<Point> find(BufferedImage image, Range range) {
     lastUsable = 0;
 
     int width = image.getWidth();
@@ -18,7 +18,15 @@ public class TargetDetector {
     DisjointSet[] nodes = new DisjointSet[width * height];
 
     for (int x = 0; x < width; ++ x) {
+      if (range != null && !range.xInRange(x)) {
+        continue;
+      }
+
       for (int y = 0; y < height; ++ y) {
+        if (range != null && !range.yInRange(y)) {
+          continue;
+        }
+
         if (ColorUtils.asGray(image.getRGB(x, y)) == ColorUtils.BLACK) {
           nodes[y * width + x] = null;
         } else {
@@ -35,7 +43,15 @@ public class TargetDetector {
     }
 
     for (int x = 0; x < width; ++ x) {
+      if (range != null && !range.xInRange(x)) {
+        continue;
+      }
+
       for (int y = 0; y < height; ++ y) {
+        if (range != null && !range.inRange(x, y)) {
+          continue;
+        }
+
         if (nodes[y * width + x] != null) {
           for (int dx = -1; dx < 1; ++ dx) {
             for (int dy = -1; dy < 1; ++ dy) {
@@ -61,10 +77,18 @@ public class TargetDetector {
     ArrayList<DisjointSet> roots = new ArrayList<DisjointSet>();
 
     for (int x = 0; x < width; ++ x) {
+      if (range != null && !range.xInRange(x)) {
+        continue;
+      }
+
       for (int y = 0; y < height; ++ y) {
+        if (range != null && !range.inRange(x, y)) {
+          continue;
+        }
+
         DisjointSet v = nodes[y * width + x];
 
-        if (v != null && v.find() == v) {
+        if (v != null && v.find() == v && v.getSize() > 100) {
           roots.add(v);
         }
       }
@@ -97,7 +121,7 @@ public class TargetDetector {
       targets.add(v.center());
     }
 
-    System.out.println(targets.size());
+//    System.out.println(targets.size());
 
     return targets;
   }

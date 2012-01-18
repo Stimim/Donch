@@ -8,6 +8,13 @@ public class ColorFilter implements ImageProcessor {
   private BufferedImage image = null;
   private BufferedImage result = null;
 
+  private Range range;
+
+  @Override
+  public void setRange(Range range) {
+    this.range = range;
+  }
+
   @Override
   public void setSourceImage(BufferedImage image) {
     if (this.image == image) {
@@ -28,29 +35,40 @@ public class ColorFilter implements ImageProcessor {
 
     result = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
 
-    System.out.println("Width: " + width);
-    System.out.println("Height: " + height);
-
     float avgV = averageV();
 
     for (int x = 0; x < width; ++ x) {
       for (int y = 0; y < height; ++ y) {
         int rgb = image.getRGB(x, y);
+        if (range == null || range.inRange(x, y)) {
+          HSV hsv = ColorUtils.rgb2hsv(rgb);
 
-        HSV hsv = ColorUtils.rgb2hsv(rgb);
+          float h = Math.abs(hsv.H - HSV.MAX_H / 2) / HSV.MAX_H * 2;
+          float s = hsv.S / HSV.MAX_S;
+          float v = ((hsv.V - avgV) / HSV.MAX_V + 0.5f);
+          int r = ColorUtils.getR(rgb);
+          int b = ColorUtils.getB(rgb);
+          int g = ColorUtils.getG(rgb);
+          float k = r <= 0 ? 0 : 1f - 1f * b * g / (r * r);
+          if (k < 0) {
+            k = 0;
+          } else {
+            k = (float) Math.pow(k, 5);
+          }
+//          k = 1;
 
-        float h = Math.abs(hsv.H - HSV.MAX_H / 2) / HSV.MAX_H * 2;
-        float s = hsv.S / HSV.MAX_S;
-        float v = (hsv.V - avgV) / HSV.MAX_V + 0.5f;
+          int value = Math.round((h * s * v * k) * 255);
 
-        int value = Math.round((h * s * v) * 255);
-
-        if (value < 100) {
-          value = 0;
+          if (value < 100) {
+            value = 0;
+          }
+//          else {
+//            value = 255;
+//          }
+          result.setRGB(x, y, ColorUtils.getRGB(value, value, value));
         } else {
-          value = 255;
+          result.setRGB(x, y, rgb);
         }
-        result.setRGB(x, y, ColorUtils.getRGB(value, value, value));
       }
     }
   }

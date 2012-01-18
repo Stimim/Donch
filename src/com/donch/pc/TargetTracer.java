@@ -6,34 +6,44 @@ import java.util.List;
 import com.donch.pc.TargetDetector.Point;
 
 public class TargetTracer {
-  private final SimpleController controller;
-  private Point point;
+  private final PoseController poseController;
+  private final ShootingController shootingController;
 
-  private static final Point FRONT_SIGHT = new Point(160, 180);
+  private Point target;
 
-  public TargetTracer() {
-    controller = new SimpleController("MrOrz", "0016530990D2");
-    this.point = null;
+  private double lastTacho = 0;
+
+  private Point frontSight = new Point(320, 380);
+
+  public TargetTracer(PoseController poseController, ShootingController shootingController) {
+    this.poseController = poseController;
+    this.shootingController = shootingController;
+    this.target = null;
   }
 
-  public void setPoint(Point point) {
-    this.point = point;
+  public void setTarget(Point target) {
+    this.target = target;
   }
 
-  public Point getPoint() {
-    return point;
+  public Point getTarget() {
+    return target;
   }
 
-  public Point update(List<Point> points) {
-    if (point == null) {
-      point = new Point(160, 120);
+  public void setFrontSight(Point point) {
+    System.out.println(point.x + ", " + point.y);
+    this.frontSight = point;
+  }
+
+  public Point update(List<Point> targets) {
+    if (target == null) {
+      target = new Point(160, 120);
     }
 
     Point closest = null;
     double distance = 0;
 
-    for (Point p : points) {
-      double d = Point.distance(p, point);
+    for (Point p : targets) {
+      double d = Point.distance(p, target);
 
       if (d > 50) {
         continue;
@@ -41,7 +51,7 @@ public class TargetTracer {
 
       if (closest == null) {
         closest = p;
-        distance = Point.distance(p, point);
+        distance = Point.distance(p, target);
       } else {
         if (d < distance) {
           distance = d;
@@ -51,27 +61,50 @@ public class TargetTracer {
     }
 
     if (closest != null) {
-      point = closest;
-      if (Point.distance(point, FRONT_SIGHT) > 10) {
-        int dx = point.x - FRONT_SIGHT.x;
-        int dy = point.y - FRONT_SIGHT.y;
+      target = closest;
+        int dx = target.x - frontSight.x;
+        int dy = target.y - frontSight.y;
 
         try {
+          boolean canShoot = true;
           if (Math.abs(dx) > 10) {
+            canShoot = false;
 //            System.out.println("dx :" + dx);
-             controller.sendCommand(SimpleController.TURN, -dx / 20);
+            if (poseController != null) {
+              if (Math.abs(dx) > 80) {
+                dx = dx > 0 ? 80 : -80;
+              }
+              lastTacho = poseController.sendCommand(PoseController.TURN, -dx / 40.);
+            }
           }
           if (Math.abs(dy) > 10) {
+            canShoot = false;
 //            System.out.println("dy :" + dy);
-            controller.sendCommand(SimpleController.RAISE, dy / 20);
+            if (poseController != null) {
+              double value = dy / 40;
+              if (value == 0) {
+                value = dy > 0 ? 1 : -1;
+              }
+
+              if (!(value > 0 && lastTacho >= 0)) {
+                lastTacho = poseController.sendCommand(PoseController.RAISE, value);
+                System.out.println("lastTacho = " + lastTacho);
+              }
+            }
+          }
+          if (canShoot) {
+            if (shootingController != null) {
+              shootingController.shoot();
+            } else {
+              System.out.println("Shoot!!!");
+            }
           }
         } catch (IOException e) {
           e.printStackTrace();
         }
-      }
-      return point;
+      return target;
     } else {
-      return point;
+      return target;
     }
   }
 }

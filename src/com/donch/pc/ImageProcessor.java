@@ -10,6 +10,8 @@ public interface ImageProcessor {
 
   void process();
 
+  void setRange(Range range);
+
   /**
    * Returns the image that is processed
    */

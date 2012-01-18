@@ -2,11 +2,14 @@ package com.donch.pc;
 
 import java.awt.Frame;
 import java.awt.Image;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Scanner;
 
@@ -21,26 +24,33 @@ import com.donch.pc.TargetDetector.Point;
 
 public class WebCamTest {
   private static final String DEV_NAME = "/dev/video1";
-  private static final int WIDTH = 320;
-  private static final int HEIGHT = 240;
+  private static final int WIDTH = 640;
+  private static final int HEIGHT = 480;
   private static final int INPUT = 0;
   private static final int STANDARD = V4L4JConstants.STANDARD_WEBCAM;
+
+  private static final int BOX_SIZE = 75;
 
   private static void showImage(Frame frame, Image image) {
     frame.getGraphics().drawImage(image, 0, 0, image.getWidth(null), image.getHeight(null), null);
   }
 
+//  private static final PoseController poseController = null;
+  private static final PoseController poseController = new PoseController("MrOrz", "0016530990D2");
+//  private static final ShootingController shootingController = null;
+  private static final ShootingController shootingController = new ShootingController("SaJim", "00165305E9EA");
   public static void main(String[] args) {
     try {
       VideoDevice vd = new VideoDevice(DEV_NAME);
       if (vd.supportRGBConversion()) {
         final TargetDetector targetDetector = new TargetDetector();
-        final TargetTracer tracer = new TargetTracer();
+
+        final TargetTracer tracer = new TargetTracer(poseController, shootingController);
 
         final Frame frame = createFrame();
         final Frame processedFrame = createProcessedFrame(tracer);
 
-        tracer.setPoint(new Point(frame.getWidth() / 2, frame.getHeight() / 2));
+        tracer.setTarget(new Point(frame.getWidth() / 2, frame.getHeight() / 2));
 
         FrameGrabber grabber = vd.getRGBFrameGrabber(WIDTH, HEIGHT, INPUT, STANDARD);
 
@@ -52,20 +62,22 @@ public class WebCamTest {
 
           @Override
           public void nextFrame(VideoFrame vframe) {
-            System.out.println(System.currentTimeMillis() + ":" + vframe.getBytes().length);
-
             BufferedImage image = vframe.getBufferedImage();
             showImage(frame, image);
 
-            image = processImage(image, WIDTH, HEIGHT);
+            Point oldTarget = tracer.getTarget();
 
-            ArrayList<Point> targets = targetDetector.find(image);
+            Range range = new Range(oldTarget.x - BOX_SIZE, oldTarget.x + BOX_SIZE, oldTarget.y - BOX_SIZE, oldTarget.y + BOX_SIZE);
+
+            image = processImage(image, range);
+
+            ArrayList<Point> targets = targetDetector.find(image, range);
 
             for (Point target : targets) {
               int x = target.x >= image.getWidth() ? image.getWidth() - 1 : (target.x < 0 ? 0 : target.x);
               int y = target.y >= image.getHeight() ? image.getHeight() - 1 : (target.y < 0 ? 0 : target.y);
 
-              System.out.println(x + ", " + y);
+//              System.out.println(x + ", " + y);
               image.setRGB(x, y, ColorUtils.GREEN);
 
               int _x = x;
@@ -92,7 +104,7 @@ public class WebCamTest {
               int x = p.x >= image.getWidth() ? image.getWidth() - 1 : (p.x < 0 ? 0 : p.x);
               int y = p.y >= image.getHeight() ? image.getHeight() - 1 : (p.y < 0 ? 0 : p.y);
 
-              System.out.println(x + ", " + y);
+//              System.out.println(x + ", " + y);
               image.setRGB(x, y, ColorUtils.RED);
 
               int _x = x;
@@ -134,14 +146,12 @@ public class WebCamTest {
     }
   }
 
-  private static BufferedImage processImage(BufferedImage image, int width, int height) {
-    return edge(image, width, height);
-  }
-
-  private static BufferedImage edge(BufferedImage image, int width, int height) {
+  private static BufferedImage processImage(BufferedImage image, Range range) {
     ImageProcessor processor = new ColorFilter();
 
     processor.setSourceImage(image);
+
+    processor.setRange(range);
 
     processor.process();
 
@@ -173,7 +183,16 @@ public class WebCamTest {
 
       @Override
       public void mouseClicked(MouseEvent event) {
-        tracer.setPoint(new Point(event.getX(), event.getY()));
+        switch (event.getButton()) {
+        case MouseEvent.BUTTON1: // left click
+          tracer.setTarget(new Point(event.getX(), event.getY()));
+          break;
+        case MouseEvent.BUTTON2:
+          break;
+        case MouseEvent.BUTTON3: // right click
+          tracer.setFrontSight(new Point(event.getX(), event.getY()));
+          break;
+        }
       }
 
       @Override
@@ -198,6 +217,63 @@ public class WebCamTest {
       public void mouseReleased(MouseEvent arg0) {
         // TODO Auto-generated method stub
 
+      }
+
+    });
+
+    processedFrame.addKeyListener(new KeyListener() {
+      int count = 0;
+      @Override
+      public void keyPressed(KeyEvent event) {
+        try {
+          switch (event.getKeyCode()) {
+          case KeyEvent.VK_LEFT:
+            poseController.sendCommand(PoseController.TURN, 10);
+            break;
+          case KeyEvent.VK_RIGHT:
+            poseController.sendCommand(PoseController.TURN, -10);
+            break;
+          case KeyEvent.VK_UP:
+              poseController.sendCommand(PoseController.MOVE, 100);
+            break;
+          case KeyEvent.VK_DOWN:
+            poseController.sendCommand(PoseController.MOVE, -100);
+            break;
+          case KeyEvent.VK_PAGE_UP:
+            poseController.sendCommand(PoseController.RAISE, -10);
+            break;
+          case KeyEvent.VK_PAGE_DOWN:
+            poseController.sendCommand(PoseController.RAISE, 10);
+            break;
+  //        default:
+  //          System.out.println(event.getKeyChar());
+          }
+        } catch (IOException e) {
+          // TODO Auto-generated catch block
+          e.printStackTrace();
+        }
+      }
+
+      @Override
+      public void keyReleased(KeyEvent event) {
+        try {
+          switch (event.getKeyCode()) {
+          case KeyEvent.VK_LEFT:
+          case KeyEvent.VK_RIGHT:
+          case KeyEvent.VK_UP:
+          case KeyEvent.VK_DOWN:
+          case KeyEvent.VK_PAGE_UP:
+          case KeyEvent.VK_PAGE_DOWN:
+            poseController.sendCommand(PoseController.STOP, 0);
+          }
+        } catch (IOException e) {
+          // TODO Auto-generated catch block
+          e.printStackTrace();
+        }
+      }
+
+      @Override
+      public void keyTyped(KeyEvent event) {
       }
 
     });

@@ -70,4 +70,10 @@ public class LaplacianFilter implements ImageProcessor {
     return result;
   }
 
+  @Override
+  public void setRange(Range range) {
+    // TODO Auto-generated method stub
+
+  }
+
 }
