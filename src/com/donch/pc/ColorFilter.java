@@ -55,16 +55,14 @@ public class ColorFilter implements ImageProcessor {
           } else {
             k = (float) Math.pow(k, 5);
           }
-//          k = 1;
+          k = 1;
 
           int value = Math.round((h * s * v * k) * 255);
 
-          if (value < 100) {
+          if (value < 75) {
             value = 0;
           }
-//          else {
-//            value = 255;
-//          }
+
           result.setRGB(x, y, ColorUtils.getRGB(value, value, value));
         } else {
           result.setRGB(x, y, rgb);

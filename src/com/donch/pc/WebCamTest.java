@@ -35,10 +35,11 @@ public class WebCamTest {
     frame.getGraphics().drawImage(image, 0, 0, image.getWidth(null), image.getHeight(null), null);
   }
 
-//  private static final PoseController poseController = null;
+//   private static final PoseController poseController = null;
   private static final PoseController poseController = new PoseController("MrOrz", "0016530990D2");
-//  private static final ShootingController shootingController = null;
+//   private static final ShootingController shootingController = null;
   private static final ShootingController shootingController = new ShootingController("SaJim", "00165305E9EA");
+
   public static void main(String[] args) {
     try {
       VideoDevice vd = new VideoDevice(DEV_NAME);
@@ -53,6 +54,7 @@ public class WebCamTest {
         tracer.setTarget(new Point(frame.getWidth() / 2, frame.getHeight() / 2));
 
         FrameGrabber grabber = vd.getRGBFrameGrabber(WIDTH, HEIGHT, INPUT, STANDARD);
+        // grabber.setFrameInterval(1, 20);
 
         grabber.setCaptureCallback(new CaptureCallback() {
           @Override
@@ -67,63 +69,16 @@ public class WebCamTest {
 
             Point oldTarget = tracer.getTarget();
 
-            Range range = new Range(oldTarget.x - BOX_SIZE, oldTarget.x + BOX_SIZE, oldTarget.y - BOX_SIZE, oldTarget.y + BOX_SIZE);
+            Range range = new Range(oldTarget.x - BOX_SIZE, oldTarget.x + BOX_SIZE, oldTarget.y
+                - BOX_SIZE, oldTarget.y + BOX_SIZE);
 
             image = processImage(image, range);
 
-            ArrayList<Point> targets = targetDetector.find(image, range);
+            targetDetection(targetDetector, tracer, image, range);
 
-            for (Point target : targets) {
-              int x = target.x >= image.getWidth() ? image.getWidth() - 1 : (target.x < 0 ? 0 : target.x);
-              int y = target.y >= image.getHeight() ? image.getHeight() - 1 : (target.y < 0 ? 0 : target.y);
+            Point frontSight = tracer.getFrontSight();
 
-//              System.out.println(x + ", " + y);
-              image.setRGB(x, y, ColorUtils.GREEN);
-
-              int _x = x;
-              if (x > 0) {
-                _x --;
-                image.setRGB(x - 1, y, ColorUtils.GREEN);
-              } else {
-                _x ++;
-                image.setRGB(x + 1, y, ColorUtils.GREEN);
-              }
-
-              if (y > 0) {
-                image.setRGB(x, y - 1, ColorUtils.GREEN);
-                image.setRGB(_x, y - 1, ColorUtils.GREEN);
-              } else {
-                image.setRGB(x, y + 1, ColorUtils.GREEN);
-                image.setRGB(_x, y + 1, ColorUtils.GREEN);
-              }
-            }
-
-            Point p = tracer.update(targets);
-
-            if (p != null) {
-              int x = p.x >= image.getWidth() ? image.getWidth() - 1 : (p.x < 0 ? 0 : p.x);
-              int y = p.y >= image.getHeight() ? image.getHeight() - 1 : (p.y < 0 ? 0 : p.y);
-
-//              System.out.println(x + ", " + y);
-              image.setRGB(x, y, ColorUtils.RED);
-
-              int _x = x;
-              if (x > 0) {
-                _x --;
-                image.setRGB(x - 1, y, ColorUtils.RED);
-              } else {
-                _x ++;
-                image.setRGB(x + 1, y, ColorUtils.RED);
-              }
-
-              if (y > 0) {
-                image.setRGB(x, y - 1, ColorUtils.RED);
-                image.setRGB(_x, y - 1, ColorUtils.RED);
-              } else {
-                image.setRGB(x, y + 1, ColorUtils.RED);
-                image.setRGB(_x, y + 1, ColorUtils.RED);
-              }
-            }
+            image.setRGB(frontSight.x, frontSight.y, ColorUtils.YELLOW);
 
             showImage(processedFrame, image);
 
@@ -164,6 +119,14 @@ public class WebCamTest {
     frame.addWindowListener(new WindowAdapter() {
       @Override
       public void windowClosing(WindowEvent event) {
+        if (shootingController != null) {
+          try {
+            shootingController.stop();
+          } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+          }
+        }
         System.exit(0);
       }
     });
@@ -185,11 +148,13 @@ public class WebCamTest {
       public void mouseClicked(MouseEvent event) {
         switch (event.getButton()) {
         case MouseEvent.BUTTON1: // left click
+          tracer.resetRatio();
           tracer.setTarget(new Point(event.getX(), event.getY()));
           break;
         case MouseEvent.BUTTON2:
           break;
         case MouseEvent.BUTTON3: // right click
+          tracer.resetRatio();
           tracer.setFrontSight(new Point(event.getX(), event.getY()));
           break;
         }
@@ -222,19 +187,19 @@ public class WebCamTest {
     });
 
     processedFrame.addKeyListener(new KeyListener() {
-      int count = 0;
       @Override
       public void keyPressed(KeyEvent event) {
-        try {
+        System.out.println(event.getKeyCode());
+        if (poseController != null) {
           switch (event.getKeyCode()) {
           case KeyEvent.VK_LEFT:
-            poseController.sendCommand(PoseController.TURN, 10);
+            poseController.sendCommand(PoseController.TURN, 90);
             break;
           case KeyEvent.VK_RIGHT:
-            poseController.sendCommand(PoseController.TURN, -10);
+            poseController.sendCommand(PoseController.TURN, -90);
             break;
           case KeyEvent.VK_UP:
-              poseController.sendCommand(PoseController.MOVE, 100);
+            poseController.sendCommand(PoseController.MOVE, 100);
             break;
           case KeyEvent.VK_DOWN:
             poseController.sendCommand(PoseController.MOVE, -100);
@@ -245,30 +210,39 @@ public class WebCamTest {
           case KeyEvent.VK_PAGE_DOWN:
             poseController.sendCommand(PoseController.RAISE, 10);
             break;
-  //        default:
-  //          System.out.println(event.getKeyChar());
           }
-        } catch (IOException e) {
-          // TODO Auto-generated catch block
-          e.printStackTrace();
+        }
+
+        if (shootingController != null) {
+          try {
+            switch (event.getKeyCode()) {
+            case 32: // space
+              shootingController.shoot();
+              break;
+            case 'B':
+              shootingController.back();
+              break;
+            }
+          } catch (IOException e) {
+            e.printStackTrace();
+          }
         }
       }
 
       @Override
       public void keyReleased(KeyEvent event) {
-        try {
-          switch (event.getKeyCode()) {
-          case KeyEvent.VK_LEFT:
-          case KeyEvent.VK_RIGHT:
-          case KeyEvent.VK_UP:
-          case KeyEvent.VK_DOWN:
-          case KeyEvent.VK_PAGE_UP:
-          case KeyEvent.VK_PAGE_DOWN:
-            poseController.sendCommand(PoseController.STOP, 0);
-          }
-        } catch (IOException e) {
-          // TODO Auto-generated catch block
-          e.printStackTrace();
+        if (poseController == null) {
+          return;
+        }
+        switch (event.getKeyCode()) {
+        case KeyEvent.VK_LEFT:
+        case KeyEvent.VK_RIGHT:
+        case KeyEvent.VK_UP:
+        case KeyEvent.VK_DOWN:
+        case KeyEvent.VK_PAGE_UP:
+        case KeyEvent.VK_PAGE_DOWN:
+          tracer.resetRatio();
+          poseController.sendCommand(PoseController.STOP, 0);
         }
       }
 
@@ -279,5 +253,61 @@ public class WebCamTest {
     });
 
     return processedFrame;
+  }
+
+  private static void targetDetection(final TargetDetector targetDetector,
+      final TargetTracer tracer, BufferedImage image, Range range) {
+    ArrayList<Point> targets = targetDetector.find(image, range);
+
+    for (Point target : targets) {
+      int x = target.x >= image.getWidth() ? image.getWidth() - 1 : (target.x < 0 ? 0 : target.x);
+      int y = target.y >= image.getHeight() ? image.getHeight() - 1 : (target.y < 0 ? 0 : target.y);
+
+      // System.out.println(x + ", " + y);
+      image.setRGB(x, y, ColorUtils.GREEN);
+
+      int _x = x;
+      if (x > 0) {
+        _x--;
+        image.setRGB(x - 1, y, ColorUtils.GREEN);
+      } else {
+        _x++;
+        image.setRGB(x + 1, y, ColorUtils.GREEN);
+      }
+
+      if (y > 0) {
+        image.setRGB(x, y - 1, ColorUtils.GREEN);
+        image.setRGB(_x, y - 1, ColorUtils.GREEN);
+      } else {
+        image.setRGB(x, y + 1, ColorUtils.GREEN);
+        image.setRGB(_x, y + 1, ColorUtils.GREEN);
+      }
+    }
+
+    Point p = tracer.update(targets);
+
+    if (p != null) {
+      int x = p.x >= image.getWidth() ? image.getWidth() - 1 : (p.x < 0 ? 0 : p.x);
+      int y = p.y >= image.getHeight() ? image.getHeight() - 1 : (p.y < 0 ? 0 : p.y);
+
+      image.setRGB(x, y, ColorUtils.RED);
+
+      int _x = x;
+      if (x > 0) {
+        _x--;
+        image.setRGB(x - 1, y, ColorUtils.RED);
+      } else {
+        _x++;
+        image.setRGB(x + 1, y, ColorUtils.RED);
+      }
+
+      if (y > 0) {
+        image.setRGB(x, y - 1, ColorUtils.RED);
+        image.setRGB(_x, y - 1, ColorUtils.RED);
+      } else {
+        image.setRGB(x, y + 1, ColorUtils.RED);
+        image.setRGB(_x, y + 1, ColorUtils.RED);
+      }
+    }
   }
 }

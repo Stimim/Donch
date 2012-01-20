@@ -18,6 +18,8 @@ public class ShootingController {
   public ShootingController(String nxt, String addr) {
     connection = new NXTConnector();
 
+    System.out.println("Connecting to " + nxt);
+
     if (!connection.connectTo(nxt, addr, NXTCommFactory.BLUETOOTH)) {
       throw new RuntimeException("Failed to connect to NXT");
     }
@@ -27,12 +29,12 @@ public class ShootingController {
 
   public void shoot() throws IOException {
     long time = System.currentTimeMillis();
-    if (time - lastShootTime < 4000) {
+    if (time - lastShootTime < 5000) {
       return;
     }
 
     synchronized (lastShootTime) {
-      if (time - lastShootTime < 4000) {
+      if (time - lastShootTime < 5000) {
         return;
       }
       lastShootTime = time;
@@ -40,6 +42,12 @@ public class ShootingController {
 
     System.out.println("Shoot!!!");
     out.writeInt(SHOOT);
+    out.flush();
+  }
+
+  public void back() throws IOException {
+    System.out.println("Back!!");
+    out.writeInt(6);
     out.flush();
   }
 

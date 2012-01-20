@@ -4,6 +4,9 @@ public class ColorUtils {
   public static final byte BLACK = 0;
   public static final int RED = 0xFFFF0000;
   public static final int GREEN = 0xFF00FF00;
+  public static final int BLUE = 0xFF0000FF;
+  public static final int YELLOW = 0xFFFFFF00;
+  public static final int WHITE = 0xFFFFFFFF;
 
   public static int asGray(int value) {
     return value & 0xFF;

@@ -21,6 +21,8 @@ public class PoseController {
   public PoseController(String nxt, String addr) {
     connection = new NXTConnector();
 
+    System.out.println("Connecting to " + nxt);
+
     if (!connection.connectTo(nxt, addr, NXTCommFactory.BLUETOOTH)) {
       throw new RuntimeException("Failed to connect to NXT");
     }
@@ -29,17 +31,26 @@ public class PoseController {
     in = connection.getDataIn();
   }
 
-  public double sendCommand(int type, double value) throws IOException {
-    out.writeInt(type);
-    out.writeDouble(value);
+  public double sendCommand(int type, double value) {
+    try {
+      synchronized (out) {
+        out.writeInt(type);
+        out.writeDouble(value);
 
-    out.flush();
+        out.flush();
+      }
 
-    int retval = in.readInt();
-    if (retval != OK) {
-      System.out.println("Retval = " + retval);
+      synchronized (in) {
+        int retval = in.readInt();
+        if (retval != OK) {
+          System.out.println("Retval = " + retval);
+        }
+
+        return in.readDouble();
+      }
+    } catch (IOException e) {
+      e.printStackTrace();
+      return -1;
     }
-
-    return in.readDouble();
   }
 }
